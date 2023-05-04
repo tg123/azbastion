@@ -1,15 +1,32 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	log "github.com/sirupsen/logrus"
 	"github.com/tg123/azbastion/pkg/azbastion"
 	"github.com/urfave/cli/v2"
 )
+
+var _ azcore.TokenCredential = &staticTokenCredential{}
+
+type staticTokenCredential struct {
+	token string
+}
+
+func (s *staticTokenCredential) GetToken(ctx context.Context, options policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{
+		Token:     s.token,
+		ExpiresOn: time.Now().Add(time.Hour),
+	}, nil
+}
 
 func main() {
 	var config struct {
@@ -22,6 +39,8 @@ func main() {
 
 		localAddr string
 		localPort uint
+
+		token string
 	}
 
 	app := &cli.App{
@@ -78,10 +97,51 @@ func main() {
 				Destination: &config.localPort,
 				Required:    true,
 			},
+			&cli.StringFlag{
+				Name:        "token",
+				Usage:       "azure access token",
+				EnvVars:     []string{"AZURE_TOKEN"},
+				Destination: &config.token,
+				Required:    false,
+			},
 		},
 		Action: func(c *cli.Context) error {
-			cred, err := azidentity.NewDefaultAzureCredential(nil)
 
+			var creds []azcore.TokenCredential
+
+			{
+				if config.token != "" {
+					creds = append(creds, &staticTokenCredential{config.token})
+				}
+			}
+
+			{
+				cred, err := azidentity.NewAzureCLICredential(nil)
+				if err == nil {
+					creds = append(creds, cred)
+				}
+			}
+
+			{
+
+				cred, err := azidentity.NewInteractiveBrowserCredential(nil)
+				if err == nil {
+					creds = append(creds, cred)
+				}
+			}
+
+			{
+				cred, err := azidentity.NewDeviceCodeCredential(nil)
+				if err == nil {
+					creds = append(creds, cred)
+				}
+			}
+
+			if len(creds) == 0 {
+				return fmt.Errorf("no credential found")
+			}
+
+			cred, err := azidentity.NewChainedTokenCredential(creds, nil)
 			if err != nil {
 				return err
 			}
