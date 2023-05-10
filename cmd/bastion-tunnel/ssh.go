@@ -1,9 +1,13 @@
 package main
 
 import (
+	"net"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
+	log "github.com/sirupsen/logrus"
+	"github.com/tg123/azbastion/pkg/azbastion"
 	"github.com/tg123/azkeyvault"
 	"golang.org/x/crypto/ssh"
 )
@@ -26,4 +30,50 @@ func keyFromKeyVault(credential azcore.TokenCredential, keyvaultUrl string, keyv
 	}
 
 	return ssh.NewSignerFromSigner(kv)
+}
+
+func pipeSshConn(conn net.Conn, t *azbastion.TunnelSession, targetaddr string, signer ssh.Signer) error {
+
+	done := make(chan error, 2)
+
+	connToSsh, connToSshReverse := net.Pipe()
+	go func() {
+		done <- t.Pipe(connToSsh)
+	}()
+
+	sshconfig := &ssh.PiperConfig{
+		NextAuthMethods: func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) ([]string, error) {
+			return []string{"none"}, nil
+		},
+
+		NoClientAuthCallback: func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) (*ssh.Upstream, error) {
+			return &ssh.Upstream{
+				Conn:    connToSshReverse,
+				Address: targetaddr,
+				ClientConfig: ssh.ClientConfig{
+					HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+					Auth: []ssh.AuthMethod{
+						ssh.PublicKeys(signer),
+					},
+				},
+			}, nil
+		},
+	}
+
+	sshconfig.SetDefaults()
+	sshconfig.AddHostKey(signer)
+
+	p, err := ssh.NewSSHPiperConn(conn, sshconfig)
+	if err != nil {
+		log.Warnf("error creating ssh piper connection: %v", err)
+		return err
+	}
+
+	defer p.Close()
+
+	go func() {
+		done <- p.Wait()
+	}()
+
+	return <-done
 }

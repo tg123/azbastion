@@ -1,34 +1,16 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	log "github.com/sirupsen/logrus"
 	"github.com/tg123/azbastion/pkg/azbastion"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/crypto/ssh"
 )
-
-var _ azcore.TokenCredential = &staticTokenCredential{}
-
-type staticTokenCredential struct {
-	token string
-}
-
-func (s *staticTokenCredential) GetToken(ctx context.Context, options policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{
-		Token:     s.token,
-		ExpiresOn: time.Now().Add(time.Hour),
-	}, nil
-}
 
 func main() {
 	var config struct {
@@ -125,42 +107,7 @@ func main() {
 			},
 		},
 		Action: func(c *cli.Context) error {
-
-			var creds []azcore.TokenCredential
-
-			{
-				if config.token != "" {
-					creds = append(creds, &staticTokenCredential{config.token})
-				}
-			}
-
-			{
-				cred, err := azidentity.NewAzureCLICredential(nil)
-				if err == nil {
-					creds = append(creds, cred)
-				}
-			}
-
-			{
-
-				cred, err := azidentity.NewInteractiveBrowserCredential(nil)
-				if err == nil {
-					creds = append(creds, cred)
-				}
-			}
-
-			{
-				cred, err := azidentity.NewDeviceCodeCredential(nil)
-				if err == nil {
-					creds = append(creds, cred)
-				}
-			}
-
-			if len(creds) == 0 {
-				return fmt.Errorf("no credential found")
-			}
-
-			cred, err := azidentity.NewChainedTokenCredential(creds, nil)
+			cred, err := createCred(config.token)
 			if err != nil {
 				return err
 			}
@@ -212,59 +159,10 @@ func main() {
 
 					defer t.Close()
 
-					if signer != nil {
-
-						done := make(chan error, 2)
-
-						connToSsh, connToSshReverse := net.Pipe()
-						go func() {
-							done <- t.Pipe(connToSsh)
-						}()
-
-						sshconfig := &ssh.PiperConfig{
-							NextAuthMethods: func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) ([]string, error) {
-								return []string{"none"}, nil
-							},
-
-							NoClientAuthCallback: func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) (*ssh.Upstream, error) {
-								return &ssh.Upstream{
-									Conn:    connToSshReverse,
-									Address: targetaddr,
-									ClientConfig: ssh.ClientConfig{
-										HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-										Auth: []ssh.AuthMethod{
-											ssh.PublicKeys(signer),
-										},
-									},
-								}, nil
-							},
-						}
-
-						sshconfig.SetDefaults()
-						sshconfig.AddHostKey(signer)
-
-						p, err := ssh.NewSSHPiperConn(c, sshconfig)
-						if err != nil {
-							log.Warnf("error creating ssh piper connection: %v", err)
-							return
-						}
-
-						defer p.Close()
-
-						go func() {
-							done <- p.Wait()
-						}()
-
-						if err := <-done; err != nil {
-							log.Warnf("error piping connection: %v", err)
-						}
-
-					} else {
-
-						if err := t.Pipe(conn); err != nil {
-							log.Warnf("error piping connection: %v", err)
-						}
+					if err := pipeConn(conn, t, targetaddr, signer); err != nil {
+						log.Warnf("error piping connection: %v", err)
 					}
+
 				}(c)
 			}
 		},
@@ -273,4 +171,12 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func pipeConn(conn net.Conn, t *azbastion.TunnelSession, targetaddr string, signer ssh.Signer) error {
+	if signer != nil {
+		return pipeSshConn(conn, t, targetaddr, signer)
+	}
+
+	return t.Pipe(conn)
 }
