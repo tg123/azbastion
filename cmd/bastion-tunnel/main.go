@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -29,6 +30,11 @@ func main() {
 
 		keyvaultUrl     string
 		keyvaultKeyName string
+
+		runssh       bool
+		sshcmdline   string
+		sshuser      string
+		sshextraargs string
 	}
 
 	flags := []cli.Flag{
@@ -103,6 +109,35 @@ func main() {
 			Destination: &config.keyvaultKeyName,
 			Required:    false,
 		}),
+		altsrc.NewBoolFlag(&cli.BoolFlag{
+			Name:        "run-ssh",
+			Usage:       "run ssh after tunnel established",
+			EnvVars:     []string{"RUN_SSH"},
+			Destination: &config.runssh,
+			Required:    false,
+		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:        "ssh-user",
+			Usage:       "ssh user",
+			EnvVars:     []string{"SSH_USER"},
+			Destination: &config.sshuser,
+			Required:    false,
+		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:        "ssh-cmdline",
+			Usage:       "ssh command line template, %P = port %L = local address",
+			EnvVars:     []string{"SSH_CMDLINE"},
+			Destination: &config.sshcmdline,
+			Value:       "ssh -o StrictHostKeyChecking=no %L -p %P",
+			Required:    false,
+		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:        "ssh-extra-args",
+			Usage:       "extra args for ssh command line",
+			EnvVars:     []string{"SSH_EXTRA_ARGS"},
+			Destination: &config.sshextraargs,
+			Required:    false,
+		}),
 		&cli.StringFlag{
 			Name:  "config",
 			Usage: "config yaml file path",
@@ -116,7 +151,6 @@ func main() {
 		"name",
 		"target-addr",
 		"target-port",
-		"local-port",
 	}
 
 	app := &cli.App{
@@ -134,6 +168,11 @@ func main() {
 			return &altsrc.MapInputSource{}, nil
 		}),
 		Action: func(c *cli.Context) error {
+
+			if config.localPort == 0 {
+				p := uint(nextAvaliablePort())
+				config.localPort = p
+			}
 
 			// check required flags
 			for _, f := range requiredflags {
@@ -165,41 +204,71 @@ func main() {
 				return err
 			}
 
-			addr := net.JoinHostPort(config.localAddr, fmt.Sprintf("%d", config.localPort))
-			log.Printf("listening at %v", addr)
-			l, err := net.Listen("tcp", addr)
+			localaddr := net.JoinHostPort(config.localAddr, fmt.Sprintf("%d", config.localPort))
+			log.Printf("listening at %v", localaddr)
+			l, err := net.Listen("tcp", localaddr)
 			if err != nil {
 				return err
 			}
 
-			for {
-				c, err := l.Accept()
-				if err != nil {
-					log.Warnf("error accepting connection: %v", err)
-					continue
+			done := make(chan error, 1)
+			defer l.Close()
+
+			go func() {
+
+				for {
+					c, err := l.Accept()
+					if err != nil {
+						log.Warnf("error accepting connection: %v", err)
+						continue
+					}
+
+					log.Printf("accepted connection: %v", c.RemoteAddr())
+
+					go func(conn net.Conn) {
+						defer conn.Close()
+						t, err := b.NewTunnelSession(config.targetAddr, uint16(config.targetPort))
+						if err != nil {
+							log.Errorf("error creating tunnel session: %v", err)
+							return
+						}
+
+						targetaddr := net.JoinHostPort(config.targetAddr, fmt.Sprintf("%d", uint16(config.targetPort)))
+						log.Printf("tunnel session created: %v -> %v", localaddr, targetaddr)
+
+						defer t.Close()
+
+						if err := pipeConn(conn, t, targetaddr, signer); err != nil {
+							log.Warnf("error piping connection: %v", err)
+						}
+
+					}(c)
+				}
+			}()
+
+			if config.runssh {
+				cmdline := strings.ReplaceAll(config.sshcmdline, "%P", fmt.Sprintf("%d", config.localPort))
+				cmdline = strings.ReplaceAll(cmdline, "%L", config.localAddr)
+				parts := strings.Split(cmdline, " ")
+				exe := parts[0]
+				args := parts[1:]
+				if config.sshuser != "" {
+					args = append(args, "-l", config.sshuser)
 				}
 
-				log.Printf("accepted connection: %v", c.RemoteAddr())
+				if config.sshextraargs != "" {
+					args = append(args, strings.Split(config.sshextraargs, " ")...)
+				}
 
-				go func(conn net.Conn) {
-					defer conn.Close()
-					t, err := b.NewTunnelSession(config.targetAddr, uint16(config.targetPort))
-					if err != nil {
-						log.Errorf("error creating tunnel session: %v", err)
-						return
-					}
-
-					targetaddr := net.JoinHostPort(config.targetAddr, fmt.Sprintf("%d", uint16(config.targetPort)))
-					log.Printf("tunnel session created: %v -> %v", addr, targetaddr)
-
-					defer t.Close()
-
-					if err := pipeConn(conn, t, targetaddr, signer); err != nil {
-						log.Warnf("error piping connection: %v", err)
-					}
-
-				}(c)
+				cmd := exec.Command(exe, args...)
+				log.Printf("running ssh: %v", cmd)
+				cmd.Stdin = os.Stdin
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				done <- cmd.Run()
 			}
+
+			return <-done
 		},
 	}
 
@@ -214,4 +283,13 @@ func pipeConn(conn net.Conn, t *azbastion.TunnelSession, targetaddr string, sign
 	}
 
 	return t.Pipe(conn)
+}
+
+func nextAvaliablePort() int {
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }
