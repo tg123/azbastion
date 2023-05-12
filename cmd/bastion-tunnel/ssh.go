@@ -7,6 +7,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates"
+	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets"
 	log "github.com/sirupsen/logrus"
 	"github.com/tg123/azbastion/pkg/azbastion"
@@ -45,6 +46,10 @@ func keyFromKeyVaultSecret(credential azcore.TokenCredential, keyvaultUrl string
 }
 
 func keyFromKeyVaultKey(credential azcore.TokenCredential, keyvaultUrl string, keyvaultKeyName string) (ssh.Signer, error) {
+	keyClient, err := azkeys.NewClient(keyvaultUrl, credential, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	certClient, err := azcertificates.NewClient(keyvaultUrl, credential, nil)
 	if err != nil {

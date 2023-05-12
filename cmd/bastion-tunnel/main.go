@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -13,6 +14,31 @@ import (
 	"github.com/urfave/cli/v2/altsrc"
 	"golang.org/x/crypto/ssh"
 )
+
+var mainver string = "(devel)"
+
+func version() string {
+
+	var v = mainver
+
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return v
+	}
+
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			v = fmt.Sprintf("%v, %v", v, s.Value[:9])
+		case "vcs.time":
+			v = fmt.Sprintf("%v, %v", v, s.Value)
+		}
+	}
+
+	v = fmt.Sprintf("%v, %v", v, bi.GoVersion)
+
+	return v
+}
 
 func main() {
 	var config struct {
@@ -165,9 +191,10 @@ func main() {
 	}
 
 	app := &cli.App{
-		Name:  "bastion-tunnel",
-		Usage: "create tcp tunnel via azure bastion",
-		Flags: flags,
+		Name:    "bastion-tunnel",
+		Usage:   "create tcp tunnel via azure bastion",
+		Version: version(),
+		Flags:   flags,
 		Before: altsrc.InitInputSourceWithContext(flags, func(cCtx *cli.Context) (altsrc.InputSourceContext, error) {
 			if filePath := cCtx.String("config"); filePath != "" {
 				if _, err := os.Stat(filePath); err == nil {
