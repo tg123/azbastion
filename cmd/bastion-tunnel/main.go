@@ -30,10 +30,12 @@ func main() {
 
 		keyvaultUrl     string
 		keyvaultKeyName string
+		keyvaultKeyType string
 
 		runssh       bool
 		sshcmdline   string
 		sshuser      string
+		sshkeypath   string
 		sshextraargs string
 	}
 
@@ -43,35 +45,30 @@ func main() {
 			Usage:       "subscription id",
 			EnvVars:     []string{"AZURE_SUBSCRIPTION_ID"},
 			Destination: &config.subscription,
-			// Required:    true,
 		}),
 		altsrc.NewStringFlag(&cli.StringFlag{
 			Name:        "group",
 			Usage:       "bastion resource group",
 			EnvVars:     []string{"AZURE_RESOURCE_GROUP"},
 			Destination: &config.group,
-			// Required:    true,
 		}),
 		altsrc.NewStringFlag(&cli.StringFlag{
 			Name:        "name",
 			Usage:       "bastion name",
 			EnvVars:     []string{"AZURE_BASTION_NAME"},
 			Destination: &config.name,
-			// Required:    true,
 		}),
 		altsrc.NewStringFlag(&cli.StringFlag{
 			Name:        "target-addr",
 			Usage:       "target address",
 			EnvVars:     []string{"TARGET_ADDR"},
 			Destination: &config.targetAddr,
-			// Required:    true,
 		}),
 		altsrc.NewUintFlag(&cli.UintFlag{
 			Name:        "target-port",
 			Usage:       "target port",
 			EnvVars:     []string{"TARGET_PORT"},
 			Destination: &config.targetPort,
-			// Required:    true,
 		}),
 
 		altsrc.NewStringFlag(&cli.StringFlag{
@@ -86,7 +83,6 @@ func main() {
 			Usage:       "local port",
 			EnvVars:     []string{"LOCAL_PORT"},
 			Destination: &config.localPort,
-			// Required:    true,
 		}),
 		altsrc.NewStringFlag(&cli.StringFlag{
 			Name:        "token",
@@ -109,6 +105,14 @@ func main() {
 			Destination: &config.keyvaultKeyName,
 			Required:    false,
 		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:        "ssh-keyvault-keytype",
+			Usage:       "azure keyvault key type for ssh private key, allow values: key, secret default: key",
+			EnvVars:     []string{"SSH_KEYVAULT_KEY_TYPE"},
+			Destination: &config.keyvaultKeyType,
+			Required:    false,
+			Value:       "key",
+		}),
 		altsrc.NewBoolFlag(&cli.BoolFlag{
 			Name:        "run-ssh",
 			Usage:       "run ssh after tunnel established",
@@ -121,6 +125,13 @@ func main() {
 			Usage:       "ssh user",
 			EnvVars:     []string{"SSH_USER"},
 			Destination: &config.sshuser,
+			Required:    false,
+		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:        "ssh-keypath",
+			Usage:       "ssh private key path",
+			EnvVars:     []string{"SSH_KEYPATH"},
+			Destination: &config.sshkeypath,
 			Required:    false,
 		}),
 		altsrc.NewStringFlag(&cli.StringFlag{
@@ -188,7 +199,7 @@ func main() {
 
 			var signer ssh.Signer
 			if config.keyvaultUrl != "" && config.keyvaultKeyName != "" {
-				signer, err = keyFromKeyVault(cred, config.keyvaultUrl, config.keyvaultKeyName)
+				signer, err = keyFromKeyVault(cred, config.keyvaultUrl, config.keyvaultKeyName, config.keyvaultKeyType)
 				if err != nil {
 					return err
 				}
@@ -254,6 +265,10 @@ func main() {
 				args := parts[1:]
 				if config.sshuser != "" {
 					args = append(args, "-l", config.sshuser)
+				}
+
+				if config.sshkeypath != "" {
+					args = append(args, "-i", config.sshkeypath)
 				}
 
 				if config.sshextraargs != "" {

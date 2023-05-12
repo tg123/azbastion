@@ -5,22 +5,23 @@ go 1.20
 replace golang.org/x/crypto => github.com/tg123/sshpiper.crypto v0.0.0-20230308112616-d8f78e9617d3
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.2
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azcertificates v0.9.0
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2 v2.2.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/tg123/azkeyvault v0.1.1
-	github.com/urfave/cli/v2 v2.25.1
-	golang.org/x/crypto v0.7.0
+	github.com/urfave/cli/v2 v2.25.3
+	golang.org/x/crypto v0.9.0
 	nhooyr.io/websocket v1.8.7
 )
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.2.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.3.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.1 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v0.9.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.0.0 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
