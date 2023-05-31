@@ -106,7 +106,7 @@ func main() {
 		}),
 		altsrc.NewUintFlag(&cli.UintFlag{
 			Name:        "local-port",
-			Usage:       "local port",
+			Usage:       "local port, use random port if not specified",
 			EnvVars:     []string{"LOCAL_PORT"},
 			Destination: &config.localPort,
 		}),
@@ -165,7 +165,7 @@ func main() {
 			Usage:       "ssh command line template, %P = port %L = local address",
 			EnvVars:     []string{"SSH_CMDLINE"},
 			Destination: &config.sshcmdline,
-			Value:       "ssh -o StrictHostKeyChecking=no %L -p %P",
+			Value:       "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=" + os.DevNull + " %L -p %P",
 			Required:    false,
 		}),
 		altsrc.NewStringFlag(&cli.StringFlag{
@@ -210,6 +210,12 @@ func main() {
 			if config.localPort == 0 {
 				p := uint(nextAvaliablePort())
 				config.localPort = p
+			}
+
+			if config.runssh {
+				if !c.IsSet("target-port") {
+					c.Set("target-port", "22")
+				}
 			}
 
 			// check required flags
@@ -257,8 +263,12 @@ func main() {
 				for {
 					c, err := l.Accept()
 					if err != nil {
+						if ne, ok := err.(net.Error); ok && ne.Temporary() {
+							continue
+						}
+
 						log.Warnf("error accepting connection: %v", err)
-						continue
+						break
 					}
 
 					log.Printf("accepted connection: %v", c.RemoteAddr())
