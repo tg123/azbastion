@@ -24,6 +24,8 @@ Conversely, the `bastion-tunnel` approach allows the utilization of a non-export
 
 ### Connection sshd behind bastion using the key
 
+ _NOTE_: public key will be in stdout after your first run, you can add it to ssh server's `~/.ssh/authorized_keys`
+ 
 ```
 bastion-tunnel --subscription <subscription id> --group <resource group> --name <bastion name> --target-addr <remote vm ip> --run-ssh --ssh-user <sshusername> --ssh-keyvault-url "https://<keyvaultname>.vault.azure.net" --ssh-keyvault-keyname <key_generated>
 ```  
