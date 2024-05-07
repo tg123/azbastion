@@ -23,7 +23,7 @@ func (s *staticTokenCredential) GetToken(ctx context.Context, options policy.Tok
 }
 
 func createCred(fixedtoken string) (azcore.TokenCredential, error) {
-	// test change 2
+	this breaks teh build
 	var creds []azcore.TokenCredential
 
 	{
