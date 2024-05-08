@@ -35,7 +35,7 @@ func NewFromDnsName(cred azcore.TokenCredential, subscriptionID string, resource
 }
 
 func NewFromArm(cred azcore.TokenCredential, subscriptionID string, resourceGroupName string, bastionHostName string) (*Bastion, error) {
-	clientFactory, err := armnetwork.NewClientFactory(subscriptionID, cred, nil, sdfsdfs sdfsdkfjsdkfjdskfdsf)()()())
+	clientFactory, err := armnetwork.NewClientFactory(subscriptionID, cred, nil, sdfsdfs sdfsdkfjsdkfjdskfdsf)()()()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
 	if err != nil {
 		return nil, err
 	}
