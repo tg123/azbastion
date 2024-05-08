@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"nhooyr.io/websocket"
@@ -35,7 +36,12 @@ func NewFromDnsName(cred azcore.TokenCredential, subscriptionID string, resource
 }
 
 func NewFromArm(cred azcore.TokenCredential, subscriptionID string, resourceGroupName string, bastionHostName string) (*Bastion, error) {
-	clientFactory, err := armnetwork.NewClientFactory(subscriptionID, cred, nil, sdfsdfs sdfsdkfjsdkfjdskfdsf)()()()aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
+	return NewFromArmClientOptions(cred, subscriptionID, resourceGroupName, bastionHostName, azcore.ClientOptions{})
+
+}
+
+func NewFromArmClientOptions(cred azcore.TokenCredential, subscriptionID string, resourceGroupName string, bastionHostName string, clientOptions azcore.ClientOptions) (*Bastion, error) {
+	clientFactory, err := armnetwork.NewClientFactory(subscriptionID, cred, &arm.ClientOptions{ClientOptions: clientOptions})
 	if err != nil {
 		return nil, err
 	}
