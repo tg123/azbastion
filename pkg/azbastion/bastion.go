@@ -110,6 +110,7 @@ func (b *Bastion) NewTunnelSession(targetHost string, port uint16) (*TunnelSessi
 		return nil, err
 	}
 
+	fmt.Printf("About to ")
 	wsUrl := fmt.Sprintf("wss://%v/webtunnelv2/%v?X-Node-Id=%v", b.bastionDns, s.WebsocketToken, s.NodeID)
 	ws, _, err := websocket.Dial(context.Background(), wsUrl, &websocket.DialOptions{
 		CompressionMode: websocket.CompressionDisabled,
@@ -137,7 +138,8 @@ type sessionToken struct {
 func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken, error) {
 
 	token, err := b.cred.GetToken(context.Background(), policy.TokenRequestOptions{
-		Scopes: []string{"https://management.azure.com/.default"}, // TODO better scope
+		//Scopes: []string{"https://management.azure.com/.default"}, // TODO better scope
+		Scopes: []string{"https://management.usgovcloudapi.net/.default"}, // TODO better scope
 	})
 
 	if err != nil {
