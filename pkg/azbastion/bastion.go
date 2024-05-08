@@ -35,13 +35,8 @@ func NewFromDnsName(cred azcore.TokenCredential, subscriptionID string, resource
 	}, nil
 }
 
-func NewFromArm(cred azcore.TokenCredential, subscriptionID string, resourceGroupName string, bastionHostName string) (*Bastion, error) {
-	return NewFromArmClientOptions(cred, subscriptionID, resourceGroupName, bastionHostName, azcore.ClientOptions{})
-
-}
-
-func NewFromArmClientOptions(cred azcore.TokenCredential, subscriptionID string, resourceGroupName string, bastionHostName string, clientOptions azcore.ClientOptions) (*Bastion, error) {
-	clientFactory, err := armnetwork.NewClientFactory(subscriptionID, cred, &arm.ClientOptions{ClientOptions: clientOptions})
+func NewFromArm(cred azcore.TokenCredential, subscriptionID string, resourceGroupName string, bastionHostName string, azureClientOptions *azcore.ClientOptions) (*Bastion, error) {
+	clientFactory, err := armnetwork.NewClientFactory(subscriptionID, cred, &arm.ClientOptions{ClientOptions: *azureClientOptions})
 	if err != nil {
 		return nil, err
 	}
