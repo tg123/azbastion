@@ -281,7 +281,7 @@ func main() {
 
 					go func(conn net.Conn) {
 						defer conn.Close()
-						t, err := b.NewTunnelSession(config.targetAddr, uint16(config.targetPort))
+						t, err := b.NewTunnelSession(config.targetAddr, uint16(config.targetPort), fmt.Sprintf("%s/.default", azureOpts.Cloud.Services[cloud.ResourceManager].Endpoint))
 						if err != nil {
 							log.Errorf("error creating tunnel session: %v", err)
 							return

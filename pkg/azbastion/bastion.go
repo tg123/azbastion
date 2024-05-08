@@ -87,7 +87,7 @@ func (t *TunnelSession) Close() error {
 	return nil
 }
 
-func (b *Bastion) NewTunnelSession(targetHost string, port uint16) (*TunnelSession, error) {
+func (b *Bastion) NewTunnelSession(targetHost string, port uint16, scope string) (*TunnelSession, error) {
 
 	if b.bastionArm != nil {
 		if b.bastionArm.Properties != nil {
@@ -105,7 +105,7 @@ func (b *Bastion) NewTunnelSession(targetHost string, port uint16) (*TunnelSessi
 		}
 	}
 
-	s, err := b.newSessionToken(targetHost, port)
+	s, err := b.newSessionToken(targetHost, port, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +135,11 @@ type sessionToken struct {
 	WebsocketToken       string   `json:"websocketToken"`
 }
 
-func (b *Bastion) newSessionToken(targetHost string, port uint16) (*sessionToken, error) {
+func (b *Bastion) newSessionToken(targetHost string, port uint16, scope string) (*sessionToken, error) {
 
 	token, err := b.cred.GetToken(context.Background(), policy.TokenRequestOptions{
 		//Scopes: []string{"https://management.azure.com/.default"}, // TODO better scope
-		Scopes: []string{"https://management.usgovcloudapi.net/.default"}, // TODO better scope
+		Scopes: []string{scope},
 	})
 
 	if err != nil {
