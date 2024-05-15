@@ -8,6 +8,8 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	log "github.com/sirupsen/logrus"
 	"github.com/tg123/azbastion/pkg/azbastion"
 	"github.com/urfave/cli/v2"
@@ -182,6 +184,10 @@ func main() {
 		},
 	}
 
+	azureOpts := azcore.ClientOptions{
+		Cloud: cloud.AzurePublic,
+	}
+
 	requiredflags := []string{
 		"subscription",
 		"group",
@@ -225,7 +231,7 @@ func main() {
 				}
 			}
 
-			cred, err := createCred(config.token)
+			cred, err := createCred(config.token, &azureOpts)
 			if err != nil {
 				return err
 			}
@@ -243,7 +249,7 @@ func main() {
 			}
 
 			log.Printf("querying bastion %s/%s/%s", config.subscription, config.group, config.name)
-			b, err := azbastion.NewFromArm(cred, config.subscription, config.group, config.name)
+			b, err := azbastion.NewFromArm(cred, config.subscription, config.group, config.name, &azureOpts)
 			if err != nil {
 				return err
 			}
@@ -275,7 +281,7 @@ func main() {
 
 					go func(conn net.Conn) {
 						defer conn.Close()
-						t, err := b.NewTunnelSession(config.targetAddr, uint16(config.targetPort))
+						t, err := b.NewTunnelSession(config.targetAddr, uint16(config.targetPort), fmt.Sprintf("%s/.default", azureOpts.Cloud.Services[cloud.ResourceManager].Endpoint))
 						if err != nil {
 							log.Errorf("error creating tunnel session: %v", err)
 							return
