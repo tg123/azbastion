@@ -137,7 +137,6 @@ type sessionToken struct {
 func (b *Bastion) newSessionToken(targetHost string, port uint16, scope string) (*sessionToken, error) {
 
 	token, err := b.cred.GetToken(context.Background(), policy.TokenRequestOptions{
-		//Scopes: []string{"https://management.azure.com/.default"}, // TODO better scope
 		Scopes: []string{scope},
 	})
 
