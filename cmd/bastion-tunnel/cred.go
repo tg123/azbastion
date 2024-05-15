@@ -28,7 +28,7 @@ func createCred(fixedtoken string, opts *azcore.ClientOptions) (azcore.TokenCred
 	var creds []azcore.TokenCredential
 
 	// From azure sdk for go docs:
-	//	  DisableInstanceDiscovery should be set true only by applications authenticating in
+	//    DisableInstanceDiscovery should be set true only by applications authenticating in
 	//    disconnected clouds, or private clouds such as Azure Stack.
 	disableInstanceDiscovery := false
 	if !(reflect.DeepEqual(opts.Cloud, cloud.AzurePublic) || reflect.DeepEqual(opts.Cloud, cloud.AzureGovernment) || reflect.DeepEqual(opts.Cloud, cloud.AzureChina)) {
