@@ -110,7 +110,6 @@ func (b *Bastion) NewTunnelSession(targetHost string, port uint16, scope string)
 		return nil, err
 	}
 
-	fmt.Printf("About to ")
 	wsUrl := fmt.Sprintf("wss://%v/webtunnelv2/%v?X-Node-Id=%v", b.bastionDns, s.WebsocketToken, s.NodeID)
 	ws, _, err := websocket.Dial(context.Background(), wsUrl, &websocket.DialOptions{
 		CompressionMode: websocket.CompressionDisabled,
